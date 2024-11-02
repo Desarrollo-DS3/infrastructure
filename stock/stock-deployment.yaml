@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: stock-deployment
+  labels:
+    app: stock
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stock
+
+  template:
+    metadata:
+      labels:
+        app: stock
+
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "stock"
+                operator: In
+                values:
+                - "true"
+    
+      containers:
+      - name: stock
+
+        image: herreran/stock:latest
+
+        ports:
+          - name: http
+            containerPort: 9090
+
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: stock-config
+              key: DATABASE_URL
+          
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: stock-secrets
+              key: DATABASE_USER
+        
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: stock-secrets
+              key: DATABASE_PASSWORD
+
+        - name: RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: username
+              
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+
+---
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: stock-service
+
+spec:
+  type: NodePort
+
+  selector:
+    app: stock
+
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+      nodePort: 30100
