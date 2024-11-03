@@ -68,6 +68,18 @@ spec:
               name: rabbitmq-credentials
               key: password
 
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: stock-config
+              key: RABBITMQ_HOST
+
+        - name: CONTEXT_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: stock-config
+              key: CONTEXT_CONFIG
+
 ---
 
 apiVersion: v1

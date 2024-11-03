@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: test-deployment
+  labels:
+    app: test
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test
+
+  template:
+    metadata:
+      labels:
+        app: test
+
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "test"
+                operator: In
+                values:
+                - "true"
+
+      containers:
+      - name: test
+
+        image: herreran/test:latest
+
+        ports:
+          - name: http
+            containerPort: 9090
+
+        env:
+          - name: RABBITMQ_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq-credentials
+                key: username
+
+          - name: RABBITMQ_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: rabbitmq-credentials
+                key: password
+
+          - name: RABBITMQ_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: stock-config
+                key: RABBITMQ_HOST
+
+---
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: test-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: test
+
+  ports:
+    - protocol: TCP
+      port: 9091
+      targetPort: 9091
