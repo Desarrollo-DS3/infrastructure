@@ -89,7 +89,7 @@ metadata:
   name: stock-service
 
 spec:
-  type: NodePort
+  type: ClusterIP
 
   selector:
     app: stock
@@ -98,4 +98,3 @@ spec:
     - protocol: TCP
       port: 9090
       targetPort: 9090
-      nodePort: 30100

@@ -1,12 +1,13 @@
 #!/bin/bash
 
 # Crear el clúster K3D
-k3d cluster create store-cluster -p "8081:30100@agent:0" --port 50840:80@loadbalancer --agents 2
+k3d cluster create store-cluster -p "8000:30100@agent:0" --port 50840:80@loadbalancer --agents 3
 
 # Taint y label de nodos
 kubectl taint nodes k3d-store-cluster-server-0 dedicated=server:NoSchedule
-kubectl label nodes k3d-store-cluster-agent-0 stock=true
+kubectl label nodes k3d-store-cluster-agent-0 gateway=true
 kubectl label nodes k3d-store-cluster-agent-1 test=true
+kubectl label nodes k3d-store-cluster-agent-2 stock=true
 
 # Aplicar el operador de RabbitMQ
 kubectl apply -f "https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml"
@@ -18,10 +19,9 @@ kubectl wait --for=condition=Established crd/rabbitmqclusters.rabbitmq.com --tim
 kubectl apply -f ./rabbit/rabbit.yaml 
 
 # Esperar 3 segundos
-sleep 10
-
+sleep 35
 # Esperar a que el pod esté listo
-kubectl wait --for=condition=ready pod/rabbit-server-0 -n rabbitmq-system --timeout=120s
+kubectl wait --for=condition=ready pod/rabbit-server-0 -n rabbitmq-system --timeout=180s
 
 # Obtener el secreto
 # Obtener el nombre de usuario
@@ -49,6 +49,8 @@ kubectl apply -f ./stock/stock-secrets.yaml
 kubectl apply -f ./stock/stock-deployment.yaml
 
 kubectl apply -f ./test-microservice/test-deployment.yaml
+
+kubectl apply -f ./gateway/gateway-deployment.yaml
 
 # Obtener todos los recursos en el namespace rabbitmq-system
 # kubectl get all -l app.kubernetes.io/name=rabbit -n rabbitmq-system
