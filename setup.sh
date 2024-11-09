@@ -1,13 +1,14 @@
 #!/bin/bash
 
 # Crear el clúster K3D
-k3d cluster create store-cluster -p "8000:30100@agent:0" --port 50840:80@loadbalancer --agents 3
+k3d cluster create store-cluster -p "8000:30000@agent:1" -p "8001:30100@agent:0" --port 50840:80@loadbalancer --agents 4
 
 # Taint y label de nodos
 kubectl taint nodes k3d-store-cluster-server-0 dedicated=server:NoSchedule
 kubectl label nodes k3d-store-cluster-agent-0 gateway=true
 kubectl label nodes k3d-store-cluster-agent-1 test=true
 kubectl label nodes k3d-store-cluster-agent-2 stock=true
+kubectl label nodes k3d-store-cluster-agent-3 transaction=true
 
 # Aplicar el operador de RabbitMQ
 kubectl apply -f "https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml"
@@ -16,7 +17,7 @@ kubectl apply -f "https://github.com/rabbitmq/cluster-operator/releases/latest/d
 kubectl wait --for=condition=Established crd/rabbitmqclusters.rabbitmq.com --timeout=120s
 
 # Aplicar la definición de RabbitMQ
-kubectl apply -f ./rabbit/rabbit.yaml 
+kubectl apply -f ./rabbit/rabbit.yaml
 
 # Esperar 3 segundos
 sleep 35
@@ -40,13 +41,17 @@ echo;
 kubectl -n rabbitmq-system get secret rabbit-default-user -o jsonpath="{.data.password}" | base64 --decode;
 echo; 
 
-# Port forward al RabbitMQ Management
 kubectl port-forward -n rabbitmq-system rabbit-server-0 8080:15672 &
 
-# Aplicar configuraciones y secretos de stock (descomentado si es necesario)
 kubectl apply -f ./stock/stock-config.yaml
 kubectl apply -f ./stock/stock-secrets.yaml
 kubectl apply -f ./stock/stock-deployment.yaml
+
+kubectl apply -f ./transaction/transaction-config.yaml
+kubectl apply -f ./transaction/transaction-secrets.yaml
+kubectl apply -f ./transaction/transaction-db-volume.yaml
+kubectl apply -f ./transaction/transaction-db-deployment.yaml
+kubectl apply -f ./transaction/transaction-deployment.yaml
 
 kubectl apply -f ./test-microservice/test-deployment.yaml
 

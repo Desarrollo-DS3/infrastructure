@@ -8,7 +8,10 @@ WORKDIR /app
 COPY . /app
 
 # Instala las dependencias necesarias
-RUN pip install pika
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+EXPOSE 5000
 
 # Comando para ejecutar tu script de Python
 CMD ["python", "main.py"]
