@@ -1,2 +1,0 @@
-docker build -t herreran/test:latest .
-docker push herreran/test:latest
