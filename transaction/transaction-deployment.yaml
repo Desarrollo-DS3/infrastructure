@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: transaction-deployment
+  labels:
+    app: transaction
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transaction
+
+  template:
+    metadata:
+      labels:
+        app: transaction
+
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "transaction"
+                operator: In
+                values:
+                - "true"
+    
+      containers:
+      - name: transaction
+
+        image: johnfreddy/transaction:latest
+
+        ports:
+          - name: http
+            containerPort: 9092
+
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: transaction-config
+              key: DATABASE_URL
+          
+        - name: DATABASE_USER
+          valueFrom:
+            secretKeyRef:
+              name: transaction-secrets
+              key: DATABASE_USER
+        
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: transaction-secrets
+              key: DATABASE_PASSWORD
+
+        - name: RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: username
+              
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rabbitmq-credentials
+              key: password
+
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: transaction-config
+              key: RABBITMQ_HOST
+
+        - name: CONTEXT_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: transaction-config
+              key: CONTEXT_CONFIG
+
+---
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: transaction-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: transaction
+
+  ports:
+    - protocol: TCP
+      port: 9092
+      targetPort: 9092
