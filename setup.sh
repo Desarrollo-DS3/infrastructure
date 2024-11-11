@@ -5,6 +5,7 @@ k3d cluster create store-cluster -p "8000:30100@agent:0" --port 50840:80@loadbal
 
 # Taint y label de nodos
 kubectl taint nodes k3d-store-cluster-server-0 dedicated=server:NoSchedule
+kubectl label nodes k3d-store-cluster-agent-0 gateway=true
 kubectl label nodes k3d-store-cluster-agent-2 stock=true
 
 # Aplicar el operador de RabbitMQ
@@ -39,6 +40,8 @@ kubectl -n rabbitmq-system get secret rabbit-default-user -o jsonpath="{.data.pa
 echo; 
 
 kubectl port-forward -n rabbitmq-system rabbit-server-0 8080:15672 &
+
+kubectl apply -f ./gateway/gateway-deployment.yaml
 
 kubectl apply -f ./stock/stock-config.yaml
 kubectl apply -f ./stock/stock-secrets.yaml
