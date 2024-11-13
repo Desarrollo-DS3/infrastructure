@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: auth-deployment
+  labels:
+    app: auth
+
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth
+
+  template:
+    metadata:
+      labels:
+        app: auth
+
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "auth"
+                operator: In
+                values:
+                - "true"
+
+      containers:
+      - name: auth
+        image: julianrc1/auth:latest
+        ports:
+          - name: http
+            containerPort: 9000
+
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: DATABASE_URL
+
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: SECRET_KEY
+
+        - name: CONTEXT_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: auth-config
+              key: DEBUG
+---
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: auth-service
+
+spec:
+  type: ClusterIP
+  selector:
+    app: auth
+
+  ports:
+    - protocol: TCP
+      port: 9000
+      targetPort: 9000
