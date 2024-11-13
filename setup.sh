@@ -1,11 +1,12 @@
 #!/bin/bash
 
 # Crear el clúster K3D
-k3d cluster create store-cluster -p "8000:30100@agent:0" --port 50840:80@loadbalancer --agents 4
+k3d cluster create store-cluster -p "8000:30100@agent:0" --port 50840:80@loadbalancer --agents 5
 
 # Taint y label de nodos
 kubectl taint nodes k3d-store-cluster-server-0 dedicated=server:NoSchedule
 kubectl label nodes k3d-store-cluster-agent-0 gateway=true
+kubectl label nodes k3d-store-cluster-agent-1 auth=true
 kubectl label nodes k3d-store-cluster-agent-2 stock=true
 kubectl label nodes k3d-store-cluster-agent-3 transaction=true
 
@@ -43,6 +44,10 @@ echo;
 kubectl port-forward -n rabbitmq-system rabbit-server-0 8080:15672 &
 
 kubectl apply -f ./gateway/gateway-deployment.yaml
+
+kubectl apply -f ./auth/auth-config.yaml
+kubectl apply -f ./auth/auth-secrets.yaml
+kubectl apply -f ./auth/auth-deployment.yaml
 
 kubectl apply -f ./stock/stock-config.yaml
 kubectl apply -f ./stock/stock-secrets.yaml

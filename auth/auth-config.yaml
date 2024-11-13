@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: auth-config
+
+data:
+  DATABASE_URL: 'postgresql://neondb_owner:qOhjV2xKasg4@ep-super-waterfall-a5nsnsd6.us-east-2.aws.neon.tech/neondb?sslmode=require'
+
+  DEBUG: 'True'
