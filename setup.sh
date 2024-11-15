@@ -12,34 +12,28 @@ kubectl label nodes k3d-store-cluster-agent-3 transaction=true
 
 # Aplicar el operador de RabbitMQ
 kubectl apply -f "https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml"
+# Revisar si el operador está corriendo
+# kubectl -n rabbitmq-system get all
 
 # Esperar a que la CRD esté establecida
 kubectl wait --for=condition=Established crd/rabbitmqclusters.rabbitmq.com --timeout=120s
 
-# Aplicar la definición de RabbitMQ
-kubectl apply -f ./rabbit/rabbit.yaml
+kubectl apply -f ./rabbit/rabbit-config.yaml
+kubectl apply -f ./rabbit/rabbit-deployment.yaml
+kubectl apply -f ./rabbit/rabbit-credentials.yaml
+# Revisar si el cluster está corriendo
+# kubectl -n rabbitmq-system get all
 
 # Esperar 3 segundos
 sleep 35
 # Esperar a que el pod esté listo
 kubectl wait --for=condition=ready pod/rabbit-server-0 -n rabbitmq-system --timeout=180s
 
-# Obtener el secreto
-# Obtener el nombre de usuario
-USERNAME=$(kubectl -n rabbitmq-system get secret rabbit-default-user -o jsonpath="{.data.username}" | base64 --decode)
-
-# Obtener la contraseña
-PASSWORD=$(kubectl -n rabbitmq-system get secret rabbit-default-user -o jsonpath="{.data.password}" | base64 --decode)
-
-kubectl create secret generic rabbitmq-credentials \
-    --namespace=default \
-    --from-literal=username="$USERNAME" \
-    --from-literal=password="$PASSWORD"
-
-kubectl -n rabbitmq-system get secret rabbit-default-user -o jsonpath="{.data.username}" | base64 --decode; 
-echo; 
-kubectl -n rabbitmq-system get secret rabbit-default-user -o jsonpath="{.data.password}" | base64 --decode;
-echo; 
+# Obtener los secretos
+kubectl get secret rabbitmq-credentials -n default -o jsonpath="{.data.username}" | base64 --decode;
+echo;
+kubectl get secret rabbitmq-credentials -n default -o jsonpath="{.data.password}" | base64 --decode;
+echo;
 
 kubectl port-forward -n rabbitmq-system rabbit-server-0 8080:15672 &
 
