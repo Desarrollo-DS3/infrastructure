@@ -5,6 +5,6 @@ metadata:
   name: auth-config
 
 data:
-  DATABASE_URL: 'postgresql://neondb_owner:qOhjV2xKasg4@ep-super-waterfall-a5nsnsd6.us-east-2.aws.neon.tech/neondb?sslmode=require'
+  DATABASE_URL: "postgres://postgres.jreaedjtytgyaxhqiiqz:pnq8bpJgis3AFh8i@aws-0-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
   DEBUG: 'True'
