@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: definitions
+  namespace: rabbitmq-system
+data:
+  definitions.json: |
+    {
+      "vhosts": [
+        {
+          "name": "/"
+        }
+      ],
+      "users": [
+        {
+          "name": "user",
+          "password": "super-secure-password",
+          "tags": "administrator"
+        }
+      ],
+      "permissions": [
+        {
+          "user": "user",
+          "vhost": "/",
+          "configure": ".*",
+          "write": ".*",
+          "read": ".*"
+        }
+      ],
+      "queues": [
+        {
+          "name": "purchase_restore_cart",
+          "vhost": "/",
+          "durable": false
+        },
+        {
+          "name": "purchase_discount_stock",
+          "vhost": "/",
+          "durable": false
+        },
+        {
+          "name": "purchase_restore_stock",
+          "vhost": "/",
+          "durable": false
+        },
+        {
+          "name": "purchase_register_transaction",
+          "vhost": "/",
+          "durable": false
+        },
+        {
+          "name": "supply_add_transc",
+          "vhost": "/",
+          "durable": false
+        },
+        {
+          "name": "supply_restore_stock",
+          "vhost": "/",
+          "durable": false
+        }
+      ]
+    }
