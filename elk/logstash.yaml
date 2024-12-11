@@ -1,56 +1,38 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
 metadata:
-  name: logstash
-  namespace: elastic-system
-  labels:
-    app.kubernetes.io/name: elasticsearch-logstash
-    app.kubernetes.io/component: logstash
+  name: quickstart
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: elasticsearch-logstash
-      app.kubernetes.io/component: logstash
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: elasticsearch-logstash
-        app.kubernetes.io/component: logstash
-    spec:
-      containers:
-        - name: logstash
-          image: docker.elastic.co/logstash/logstash:8.13.4
+  count: 1
+  elasticsearchRefs:
+    - name: quickstart
+      clusterName: qs
+  version: 8.16.1
+  pipelines:
+    - pipeline.id: main
+      config.string: |
+        input {
+          beats {
+            port => 5044
+          }
+        }
+        output {
+          elasticsearch {
+            hosts => [ "${QS_ES_HOSTS}" ]
+            user => "${QS_ES_USER}"
+            password => "${QS_ES_PASSWORD}"
+            ssl_verification_mode => "none"	
+            ssl_enabled  => false
+          }
+        }
+  services:
+    - name: beats
+      service:
+        spec:
+          type: NodePort
           ports:
-            - name: "tcp-beats"
-              containerPort: 5044
-          volumeMounts:
-            - name: config-volume
-              mountPath: /usr/share/logstash/config
-            - name: pipeline-volume
-              mountPath: /usr/share/logstash/pipeline
-      volumes:
-        - name: config-volume
-          configMap:
-            name: logstash-config
-        - name: pipeline-volume
-          configMap:
-            name: logstash-pipeline
- 
----
- 
-apiVersion: v1
-kind: Service
-metadata:
-  name: logstash
-  labels:
-    app.kubernetes.io/name: elasticsearch-logstash
-    app.kubernetes.io/component: logstash
-spec:
-  ports:
-    - name: "tcp-beats"
-      port: 5044
-      targetPort: 5044
-  selector:
-    app.kubernetes.io/name: elasticsearch-logstash
-    app.kubernetes.io/component: logstash
+            - port: 5044
+              name: "filebeat"
+              protocol: TCP
+              targetPort: 5044
+              

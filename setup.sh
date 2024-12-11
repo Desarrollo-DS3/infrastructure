@@ -1,113 +1,103 @@
 #!/bin/bash
 
 # Crear el clúster K3D
-k3d cluster create store-cluster -p "8000:30100@agent:0" --port 50840:80@loadbalancer --agents 2
+# Este comando crea un clúster K3D llamado "store-cluster" con un puerto expuesto para el servidor (8000) 
+# y otro puerto (50840) para el LoadBalancer. Además, se crea un nodo de carga (agent) y cuatro nodos de agentes.
+k3d cluster create store-cluster -p "8000:30100@agent:1" --port 50840:80@loadbalancer --agents 4
 
 # Taint y label de nodos
+# Aplica una "taint" al primer nodo para evitar que se programen pods en él a menos que tengan la etiqueta correcta.
 kubectl taint nodes k3d-store-cluster-server-0 dedicated=server:NoSchedule
+# Etiqueta el segundo nodo de agente como "gateway=true" para asignar pods relacionados con el gateway a este nodo.
 kubectl label nodes k3d-store-cluster-agent-0 gateway=true
-# kubectl label nodes k3d-store-cluster-agent-1 auth=true
-# kubectl label nodes k3d-store-cluster-agent-2 stock=true
-# kubectl label nodes k3d-store-cluster-agent-3 transaction=true
+# Etiqueta el tercer nodo de agente como "stock=true" para asignar pods relacionados con el stock a este nodo.
+kubectl label nodes k3d-store-cluster-agent-1 stock=true
+# Etiqueta el cuarto nodo de agente como "transaction=true" para asignar pods relacionados con la transacción a este nodo.
+kubectl label nodes k3d-store-cluster-agent-2 transaction=true
 
 # Aplicar el operador de RabbitMQ
+# El operador de RabbitMQ permite gestionar clústeres de RabbitMQ de manera declarativa en Kubernetes.
 kubectl apply -f "https://github.com/rabbitmq/cluster-operator/releases/latest/download/cluster-operator.yml"
-# Revisar si el operador está corriendo
+
+# Revisar si el operador RabbitMQ está corriendo
+# Descomentando esta línea podrás revisar los recursos del operador en el namespace "rabbitmq-system".
 # kubectl -n rabbitmq-system get all
 
-# Esperar a que la CRD esté establecida
+# Esperar a que la CRD (Custom Resource Definition) esté establecida
+# Aquí se espera que la CRD (rabbitmqclusters.rabbitmq.com) se establezca antes de seguir.
 kubectl wait --for=condition=Established crd/rabbitmqclusters.rabbitmq.com --timeout=120s
 
+# Aplicar la configuración de RabbitMQ
+# El archivo `rabbit-config.yaml` contiene la configuración del clúster de RabbitMQ.
 kubectl apply -f ./rabbit/rabbit-config.yaml
+# Desplegar la configuración y despliegue de RabbitMQ
 kubectl apply -f ./rabbit/rabbit-deployment.yaml
+# Aplicar las credenciales de RabbitMQ
 kubectl apply -f ./rabbit/rabbit-credentials.yaml
-# Revisar si el cluster está corriendo
-# kubectl -n rabbitmq-system get all
 
-# Esperar 3 segundos
+# Esperar unos segundos para que los pods de RabbitMQ se inicialicen
 sleep 35
-# Esperar a que el pod esté listo
+
+# Esperar a que el pod "rabbit-server-0" esté listo en el namespace "rabbitmq-system"
 kubectl wait --for=condition=ready pod/rabbit-server-0 -n rabbitmq-system --timeout=180s
 
-# Obtener los secretos
-kubectl get secret rabbitmq-credentials -n default -o jsonpath="{.data.username}" | base64 --decode;
-echo;
-kubectl get secret rabbitmq-credentials -n default -o jsonpath="{.data.password}" | base64 --decode;
-echo;
-
-kubectl port-forward -n rabbitmq-system rabbit-server-0 8080:15672 &
-
+# Desplegar la aplicación Gateway
+# Aquí se aplica el archivo de despliegue del gateway, que es responsable de gestionar las solicitudes entrantes.
 kubectl apply -f ./gateway/gateway-deployment.yaml
 
-# kubectl apply -f ./auth/auth-config.yaml
-# kubectl apply -f ./auth/auth-secrets.yaml
-# kubectl apply -f ./auth/auth-deployment.yaml
+# Desplegar la aplicación Auth
+# Aquí se aplica el archivo de despliegue de auth, que es responsable de gestionar la autenticación y autorización.
+kubectl apply -f ./auth/auth-config.yaml
+kubectl apply -f ./auth/auth-secrets.yaml
+kubectl apply -f ./auth/auth-deployment.yaml
 
-# kubectl apply -f ./stock/stock-config.yaml
-# kubectl apply -f ./stock/stock-secrets.yaml
-# kubectl apply -f ./stock/stock-deployment.yaml
+# Desplegar la aplicación Stock
+# Aquí se aplica el archivo de despliegue de stock, que es responsable de gestionar el inventario de productos.
+kubectl apply -f ./stock/stock-config.yaml
+kubectl apply -f ./stock/stock-secrets.yaml
+kubectl apply -f ./stock/stock-deployment.yaml
 
-# kubectl apply -f ./transaction/transaction-config.yaml
-# kubectl apply -f ./transaction/transaction-secrets.yaml
-# kubectl apply -f ./transaction/transaction-db-volume.yaml
-# kubectl apply -f ./transaction/transaction-db-deployment.yaml
-# kubectl apply -f ./transaction/transaction-deployment.yaml
-
-# Obtener todos los recursos en el namespace rabbitmq-system
-# kubectl get all -l app.kubernetes.io/name=rabbit -n rabbitmq-system
+# Desplegar la aplicación Transaction
+# Aquí se aplica el archivo de despliegue de transaction, que es responsable de gestionar las transacciones de compra.
+kubectl apply -f ./transaction/transaction-config.yaml
+kubectl apply -f ./transaction/transaction-secrets.yaml
+kubectl apply -f ./transaction/transaction-db-volume.yaml
+kubectl apply -f ./transaction/transaction-db-deployment.yaml
+kubectl apply -f ./transaction/transaction-deployment.yaml
 
 # Aplicar los CRDs y el operador Elastic
-
+# Se crean las Custom Resource Definitions (CRDs) necesarias para utilizar ElasticSearch y Kibana en Kubernetes.
 kubectl create -f https://download.elastic.co/downloads/eck/2.15.0/crds.yaml
+# Aplicar el operador de ElasticSearch y Kibana
 kubectl apply -f https://download.elastic.co/downloads/eck/2.15.0/operator.yaml
 
+# Esperar a que la CRD de ElasticSearch esté establecida
 kubectl wait --for=condition=Established crd/elasticsearches.elasticsearch.k8s.elastic.co --timeout=120s
 
-kubectl create namespace elk-system
+# Desplegar ElasticSearch
+# Aquí se aplica la configuración de ElasticSearch desde el archivo "elasticsearch.yaml".
 kubectl apply -f ./elk/elasticsearch.yaml
-kubectl wait --for=condition=ready pod/elasticsearch-es-default-0 --timeout=180s -n elk-system
+# Esperar a que los pods de ElasticSearch estén listos
+sleep 5
+kubectl wait --for=condition=Ready --timeout=300s pod --selector='elasticsearch.k8s.elastic.co/cluster-name=quickstart'
 
-PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
-kubectl port-forward service/elasticsearch-es-http 9200 -n elk-system
-PASSWORD=$(kubectl get secret elasticsearch-es-elastic-user -o go-template='{{.data.elastic | base64decode}}' -n elk-system) && echo $PASSWORD &&
-curl -u "elastic:$PASSWORD" -k "https://localhost:9200"
-
+# Desplegar Kibana
+# Aquí se aplica la configuración de Kibana desde el archivo "kibana.yaml".
 kubectl apply -f ./elk/kibana.yaml
+# Esperar a que los pods de Kibana estén listos
+sleep 5
+kubectl wait --for=condition=Ready --timeout=300s pod --selector='kibana.k8s.elastic.co/name=quickstart'
 
-kubectl wait --for=condition=ready pod -l kibana.k8s.elastic.co/name=kibana --timeout=180s -n elk-system
+# Desplegar Filebeat
+# Aquí se aplica la configuración de Filebeat, que recolectará logs de los contenedores.
+kubectl apply -f ./elk/filebeat.yaml
+# Esperar a que los pods de Filebeat estén listos
+sleep 5
+kubectl wait --for=condition=Ready --timeout=300s pod --selector='beat.k8s.elastic.co/name=quickstart'
 
-kubectl port-forward service/kibana-kb-http 5601 -n elk-system
-
-https://localhost:5601
-
-# kubectl -n elastic-system logs -f statefulset.apps/elastic-operator
-
-# # Elasticsearch
-# kubectl apply -f ./elk/elasticsearch.yaml
-# sleep 30
-# kubectl wait --for=condition=ready pod -l common.k8s.elastic.co/type=elasticsearch --timeout=180s
-
-# # Obtener contraseña
-# PASSWORD=$(kubectl get secret elk-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
-
-# # Kibana
-# kubectl apply -f ./elk/kibana.yaml
-# sleep 30
-# kubectl wait --for=condition=ready pod -l common.k8s.elastic.co/type=kibana --timeout=180s
-
-# # Filebeat
-# kubectl apply -f ./elk/filebeat.yaml
-# sleep 30
-# kubectl wait --for=condition=ready pod -l beat.k8s.elastic.co/name=elk --timeout=180s
-
-# # Logstash Config y Logstash
-# kubectl apply -f ./elk/logstash-config.yaml
-# kubectl apply -f ./elk/logstash.yaml
-# kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=logstash --timeout=180s
-
-
-# kubectl port-forward service/elk-kb-http 5601
-# kubectl port-forward service/elk-es-http 9200
-
-
-
+# Desplegar Logstash
+# Aquí se aplica la configuración de Logstash, que procesará y enviará logs a ElasticSearch.
+kubectl apply -f ./elk/logstash.yaml
+# Esperar a que los pods de Logstash estén listos
+sleep 5
+kubectl wait --for=condition=Ready --timeout=300s pod --selector='logstash.k8s.elastic.co/name=quickstart'

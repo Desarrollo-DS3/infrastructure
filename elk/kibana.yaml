@@ -1,10 +1,9 @@
 apiVersion: kibana.k8s.elastic.co/v1
 kind: Kibana
 metadata:
-  name: kibana
-  namespace: elk-system
+  name: quickstart
 spec:
   version: 8.16.1
   count: 1
   elasticsearchRef:
-    name: elasticsearch
+    name: quickstart
