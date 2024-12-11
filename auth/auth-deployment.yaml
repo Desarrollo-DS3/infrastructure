@@ -53,6 +53,12 @@ spec:
             configMapKeyRef:
               name: auth-config
               key: DEBUG
+
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: auth-secrets
+              key: JWT_SECRET_KEY
 ---
 
 apiVersion: v1
