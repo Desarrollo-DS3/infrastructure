@@ -79,6 +79,12 @@ spec:
             configMapKeyRef:
               name: stock-config
               key: CONTEXT_CONFIG
+        
+        - name: JWT_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: stock-secrets
+              key: auth-secrets
 
 ---
 
