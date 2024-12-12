@@ -83,8 +83,8 @@ spec:
         - name: JWT_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: stock-secrets
-              key: auth-secrets
+              name: auth-secrets
+              key: JWT_SECRET_KEY
 
 ---
 
