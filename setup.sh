@@ -14,6 +14,8 @@ kubectl label nodes k3d-store-cluster-agent-0 gateway=true
 kubectl label nodes k3d-store-cluster-agent-1 stock=true
 # Etiqueta el cuarto nodo de agente como "transaction=true" para asignar pods relacionados con la transacción a este nodo.
 kubectl label nodes k3d-store-cluster-agent-2 transaction=true
+# Etiqueta el quinto nodo de agente como "auth=true" para asignar pods relacionados con la autenticación a este nodo.
+kubectl label nodes k3d-store-cluster-agent-3 auth=true
 
 # Aplicar el operador de RabbitMQ
 # El operador de RabbitMQ permite gestionar clústeres de RabbitMQ de manera declarativa en Kubernetes.
@@ -44,18 +46,21 @@ kubectl wait --for=condition=ready pod/rabbit-server-0 -n rabbitmq-system --time
 # Desplegar la aplicación Gateway
 # Aquí se aplica el archivo de despliegue del gateway, que es responsable de gestionar las solicitudes entrantes.
 kubectl apply -f ./gateway/gateway-deployment.yaml
+kubectl wait --for=condition=ready pod -l app=gateway --timeout=180s
 
 # Desplegar la aplicación Auth
 # Aquí se aplica el archivo de despliegue de auth, que es responsable de gestionar la autenticación y autorización.
 kubectl apply -f ./auth/auth-config.yaml
 kubectl apply -f ./auth/auth-secrets.yaml
 kubectl apply -f ./auth/auth-deployment.yaml
+kubectl wait --for=condition=ready pod -l app=auth --timeout=180s
 
 # Desplegar la aplicación Stock
 # Aquí se aplica el archivo de despliegue de stock, que es responsable de gestionar el inventario de productos.
 kubectl apply -f ./stock/stock-config.yaml
 kubectl apply -f ./stock/stock-secrets.yaml
 kubectl apply -f ./stock/stock-deployment.yaml
+kubectl wait --for=condition=ready pod -l app=stock --timeout=180s
 
 # Desplegar la aplicación Transaction
 # Aquí se aplica el archivo de despliegue de transaction, que es responsable de gestionar las transacciones de compra.
@@ -64,40 +69,7 @@ kubectl apply -f ./transaction/transaction-secrets.yaml
 kubectl apply -f ./transaction/transaction-db-volume.yaml
 kubectl apply -f ./transaction/transaction-db-deployment.yaml
 kubectl apply -f ./transaction/transaction-deployment.yaml
+kubectl wait --for=condition=ready pod -l app=transaction --timeout=180s
 
-# Aplicar los CRDs y el operador Elastic
-# Se crean las Custom Resource Definitions (CRDs) necesarias para utilizar ElasticSearch y Kibana en Kubernetes.
-kubectl create -f https://download.elastic.co/downloads/eck/2.15.0/crds.yaml
-# Aplicar el operador de ElasticSearch y Kibana
-kubectl apply -f https://download.elastic.co/downloads/eck/2.15.0/operator.yaml
-
-# Esperar a que la CRD de ElasticSearch esté establecida
-kubectl wait --for=condition=Established crd/elasticsearches.elasticsearch.k8s.elastic.co --timeout=120s
-
-# Desplegar ElasticSearch
-# Aquí se aplica la configuración de ElasticSearch desde el archivo "elasticsearch.yaml".
-kubectl apply -f ./elk/elasticsearch.yaml
-# Esperar a que los pods de ElasticSearch estén listos
-sleep 5
-kubectl wait --for=condition=Ready --timeout=300s pod --selector='elasticsearch.k8s.elastic.co/cluster-name=quickstart'
-
-# Desplegar Kibana
-# Aquí se aplica la configuración de Kibana desde el archivo "kibana.yaml".
-kubectl apply -f ./elk/kibana.yaml
-# Esperar a que los pods de Kibana estén listos
-sleep 5
-kubectl wait --for=condition=Ready --timeout=300s pod --selector='kibana.k8s.elastic.co/name=quickstart'
-
-# Desplegar Filebeat
-# Aquí se aplica la configuración de Filebeat, que recolectará logs de los contenedores.
-kubectl apply -f ./elk/filebeat.yaml
-# Esperar a que los pods de Filebeat estén listos
-sleep 5
-kubectl wait --for=condition=Ready --timeout=300s pod --selector='beat.k8s.elastic.co/name=quickstart'
-
-# Desplegar Logstash
-# Aquí se aplica la configuración de Logstash, que procesará y enviará logs a ElasticSearch.
-kubectl apply -f ./elk/logstash.yaml
-# Esperar a que los pods de Logstash estén listos
-sleep 5
-kubectl wait --for=condition=Ready --timeout=300s pod --selector='logstash.k8s.elastic.co/name=quickstart'
+# Configurar el monitor de Elastic en la nube
+kubectl kustomize https://github.com/elastic/elastic-agent/deploy/kubernetes/elastic-agent-kustomize/default/elastic-agent-standalone\?ref\=v8.16.1 | sed -e 's/JUFQSV9LRVkl/UlY4VHVKTUJrQ19kSncyRmlHckM6MENON2d1c19SZ0M3Q1pJY2Zxc2Mxdw==/g' -e "s/%ES_HOST%/https:\/\/8ad1be6b3216474a83b9f8146d397917.us-central1.gcp.cloud.es.io:443/g" -e "s/%ONBOARDING_ID%/1e1b3b3f-3198-4e96-ae75-f3e6d5aa873d/g" -e "s/\(docker.elastic.co\/beats\/elastic-agent:\).*$/\18.16.1/g" -e "/{CA_TRUSTED}/c\ " | kubectl apply -f-
