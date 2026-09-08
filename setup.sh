@@ -72,4 +72,25 @@ kubectl apply -f ./transaction/transaction-deployment.yaml
 kubectl wait --for=condition=ready pod -l app=transaction --timeout=180s
 
 # Configurar el monitor de Elastic en la nube
-kubectl kustomize https://github.com/elastic/elastic-agent/deploy/kubernetes/elastic-agent-kustomize/default/elastic-agent-standalone\?ref\=v8.16.1 | sed -e 's/JUFQSV9LRVkl/UlY4VHVKTUJrQ19kSncyRmlHckM6MENON2d1c19SZ0M3Q1pJY2Zxc2Mxdw==/g' -e "s/%ES_HOST%/https:\/\/8ad1be6b3216474a83b9f8146d397917.us-central1.gcp.cloud.es.io:443/g" -e "s/%ONBOARDING_ID%/1e1b3b3f-3198-4e96-ae75-f3e6d5aa873d/g" -e "s/\(docker.elastic.co\/beats\/elastic-agent:\).*$/\18.16.1/g" -e "/{CA_TRUSTED}/c\ " | kubectl apply -f-
+#
+# Las credenciales NO van en este archivo. Se leen del entorno:
+#   ELASTIC_API_KEY_B64    la API key en base64, en formato id:secret
+#   ELASTIC_HOST           la URL del despliegue, con puerto
+#   ELASTIC_ONBOARDING_ID  el id de onboarding del agente
+#
+# Ejemplo de uso:
+#   export ELASTIC_API_KEY_B64="$(printf '%s' 'mi_id:mi_secreto' | base64 -w0)"
+#   export ELASTIC_HOST="https://mi-despliegue.us-central1.gcp.cloud.es.io:443"
+#   export ELASTIC_ONBOARDING_ID="mi-id-de-onboarding"
+if [ -z "$ELASTIC_API_KEY_B64" ] || [ -z "$ELASTIC_HOST" ] || [ -z "$ELASTIC_ONBOARDING_ID" ]; then
+  echo "Aviso: faltan ELASTIC_API_KEY_B64, ELASTIC_HOST o ELASTIC_ONBOARDING_ID."
+  echo "Se omite el agente de Elastic. El resto del cluster queda desplegado igual."
+else
+  kubectl kustomize "https://github.com/elastic/elastic-agent/deploy/kubernetes/elastic-agent-kustomize/default/elastic-agent-standalone?ref=v8.16.1" \
+    | sed -e "s/JUFQSV9LRVkl/${ELASTIC_API_KEY_B64}/g" \
+          -e "s|%ES_HOST%|${ELASTIC_HOST}|g" \
+          -e "s/%ONBOARDING_ID%/${ELASTIC_ONBOARDING_ID}/g" \
+          -e "s/\\(docker.elastic.co\\/beats\\/elastic-agent:\\).*$/\\18.16.1/g" \
+          -e "/{CA_TRUSTED}/c\\ " \
+    | kubectl apply -f-
+fi
