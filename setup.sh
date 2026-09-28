@@ -71,5 +71,26 @@ kubectl apply -f ./transaction/transaction-db-deployment.yaml
 kubectl apply -f ./transaction/transaction-deployment.yaml
 kubectl wait --for=condition=ready pod -l app=transaction --timeout=180s
 
-# Configurar el monitor de Elastic en la nube
-kubectl kustomize https://github.com/elastic/elastic-agent/deploy/kubernetes/elastic-agent-kustomize/default/elastic-agent-standalone\?ref\=v8.16.1 | sed -e 's/JUFQSV9LRVkl/UlY4VHVKTUJrQ19kSncyRmlHckM6MENON2d1c19SZ0M3Q1pJY2Zxc2Mxdw==/g' -e "s/%ES_HOST%/https:\/\/8ad1be6b3216474a83b9f8146d397917.us-central1.gcp.cloud.es.io:443/g" -e "s/%ONBOARDING_ID%/1e1b3b3f-3198-4e96-ae75-f3e6d5aa873d/g" -e "s/\(docker.elastic.co\/beats\/elastic-agent:\).*$/\18.16.1/g" -e "/{CA_TRUSTED}/c\ " | kubectl apply -f-
+# Configurar el monitor de Elastic en la nube (opcional).
+# Requiere tus propias credenciales de Elastic Cloud. Exportalas antes de correr
+# el script, o dejalas sin definir para saltarte este paso:
+#
+#   export ELASTIC_API_KEY="<id>:<secret>"
+#   export ELASTIC_ES_HOST="https://<despliegue>.us-central1.gcp.cloud.es.io:443"
+#   export ELASTIC_ONBOARDING_ID="<uuid>"
+#
+if [ -n "$ELASTIC_API_KEY" ] && [ -n "$ELASTIC_ES_HOST" ]; then
+  # El manifiesto trae el marcador %API_KEY% ya codificado en base64, asi que la
+  # clave hay que codificarla igual antes de sustituirla.
+  ELASTIC_API_KEY_B64=$(printf '%s' "$ELASTIC_API_KEY" | base64 | tr -d '\n')
+
+  kubectl kustomize "https://github.com/elastic/elastic-agent/deploy/kubernetes/elastic-agent-kustomize/default/elastic-agent-standalone?ref=v8.16.1" \
+    | sed -e "s/JUFQSV9LRVkl/${ELASTIC_API_KEY_B64}/g" \
+          -e "s|%ES_HOST%|${ELASTIC_ES_HOST}|g" \
+          -e "s/%ONBOARDING_ID%/${ELASTIC_ONBOARDING_ID}/g" \
+          -e "s/\(docker.elastic.co\/beats\/elastic-agent:\).*$/\18.16.1/g" \
+          -e "/{CA_TRUSTED}/c\ " \
+    | kubectl apply -f-
+else
+  echo "Elastic Agent omitido: define ELASTIC_API_KEY y ELASTIC_ES_HOST para habilitarlo."
+fi
